@@ -1,0 +1,146 @@
+.
+├── backend
+│   ├── Dockerfile
+│   ├── jest.config.ts
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── seed
+│   │   └── seed.ts
+│   ├── server.ts
+│   ├── src
+│   │   ├── app.ts
+│   │   ├── config
+│   │   │   ├── db.ts
+│   │   │   └── env.ts
+│   │   ├── constants
+│   │   │   └── index.ts
+│   │   ├── controllers
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── task.controller.ts
+│   │   │   └── user.controller.ts
+│   │   ├── middleware
+│   │   │   ├── checkRole.ts
+│   │   │   ├── errorHandler.ts
+│   │   │   ├── notFound.ts
+│   │   │   ├── rateLimiter.ts
+│   │   │   └── verifyToken.ts
+│   │   ├── models
+│   │   │   ├── RefreshToken.model.ts
+│   │   │   ├── Task.model.ts
+│   │   │   └── User.model.ts
+│   │   ├── routes
+│   │   │   ├── auth.routes.ts
+│   │   │   ├── index.ts
+│   │   │   ├── task.routes.ts
+│   │   │   └── user.routes.ts
+│   │   ├── services
+│   │   │   ├── auth.service.ts
+│   │   │   ├── task.service.ts
+│   │   │   └── user.service.ts
+│   │   ├── socket
+│   │   │   └── taskGateway.ts
+│   │   ├── types
+│   │   │   └── express.d.ts
+│   │   ├── utils
+│   │   │   ├── AppError.ts
+│   │   │   ├── generateTokens.ts
+│   │   │   └── paginate.ts
+│   │   └── validations
+│   │       └── schemas.ts
+│   ├── tests
+│   │   ├── auth.test.ts
+│   │   └── tasks.test.ts
+│   └── tsconfig.json
+├── docker-compose.yml
+├── frontend
+│   ├── components.json
+│   ├── Dockerfile
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── nginx.conf
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── public
+│   │   └── vite.svg
+│   ├── README.md
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.tsx
+│   │   ├── assets
+│   │   │   └── react.svg
+│   │   ├── components
+│   │   │   ├── auth
+│   │   │   │   ├── ForgotPasswordForm.tsx
+│   │   │   │   ├── LoginForm.tsx
+│   │   │   │   └── SignupForm.tsx
+│   │   │   ├── dashboard
+│   │   │   │   ├── Navbar.tsx
+│   │   │   │   ├── Sidebar.tsx
+│   │   │   │   └── StatsCard.tsx
+│   │   │   ├── kanban
+│   │   │   │   ├── KanbanBoard.tsx
+│   │   │   │   ├── KanbanColumn.tsx
+│   │   │   │   ├── TaskCard.tsx
+│   │   │   │   └── TaskModal.tsx
+│   │   │   ├── shared
+│   │   │   │   ├── EmptyState.tsx
+│   │   │   │   ├── LoadingSkeleton.tsx
+│   │   │   │   ├── ProtectedRoute.tsx
+│   │   │   │   └── ThemeToggle.tsx
+│   │   │   ├── ui
+│   │   │   │   ├── avatar.tsx
+│   │   │   │   ├── badge.tsx
+│   │   │   │   ├── button.tsx
+│   │   │   │   ├── card.tsx
+│   │   │   │   ├── dialog.tsx
+│   │   │   │   ├── dropdown-menu.tsx
+│   │   │   │   ├── input.tsx
+│   │   │   │   ├── label.tsx
+│   │   │   │   ├── select.tsx
+│   │   │   │   ├── separator.tsx
+│   │   │   │   ├── sheet.tsx
+│   │   │   │   ├── skeleton.tsx
+│   │   │   │   └── tooltip.tsx
+│   │   │   └── users
+│   │   │       └── UserTable.tsx
+│   │   ├── constants
+│   │   │   └── index.ts
+│   │   ├── hooks
+│   │   │   ├── useAuth.ts
+│   │   │   ├── useSocket.ts
+│   │   │   ├── useTasks.ts
+│   │   │   └── useUsers.ts
+│   │   ├── index.css
+│   │   ├── lib
+│   │   │   ├── api.ts
+│   │   │   ├── queryClient.ts
+│   │   │   ├── socket.ts
+│   │   │   └── utils.ts
+│   │   ├── main.tsx
+│   │   ├── pages
+│   │   │   ├── auth
+│   │   │   │   ├── ForgotPasswordPage.tsx
+│   │   │   │   ├── LoginPage.tsx
+│   │   │   │   └── SignupPage.tsx
+│   │   │   └── dashboard
+│   │   │       ├── DashboardPage.tsx
+│   │   │       ├── TasksPage.tsx
+│   │   │       └── UsersPage.tsx
+│   │   ├── routes
+│   │   │   └── AppRouter.tsx
+│   │   ├── store
+│   │   │   ├── authStore.ts
+│   │   │   └── uiStore.ts
+│   │   ├── types
+│   │   │   └── index.ts
+│   │   └── validations
+│   │       └── schemas.ts
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   └── vite.config.ts
+├── package.json
+├── PROJECT_STRUCTURE.txt
+└── README.md
+
+37 directories, 107 files
