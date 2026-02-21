@@ -23,3 +23,10 @@ pnpm-debug.log*
 
 # Docker
 docker-compose.override.yml
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Test/debug files
+cookies.txt
