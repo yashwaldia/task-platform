@@ -8,11 +8,11 @@
 
 | Service | URL |
 |---|---|
-| **Frontend** | `https://YOUR_VERCEL_URL.vercel.app` |
-| **Backend API** | `https://task-platform-production.up.railway.app/api/v1` |
-| **API Docs (Swagger)** | `https://task-platform-production.up.railway.app/api/v1/docs` |
+| **Frontend** | https://task-platform-five.vercel.app |
+| **Backend API** | https://task-platform-production.up.railway.app/api/v1 |
+| **API Docs (Swagger)** | https://task-platform-production.up.railway.app/api/v1/docs |
 
-> Replace `YOUR_VERCEL_URL` with your actual Vercel deployment URL before submission.
+> The Backend API URL returns a JSON response when opened directly in a browser — this is expected REST API behaviour. Use the Frontend URL to access the full application.
 
 ---
 
@@ -208,7 +208,7 @@ task-platform/
 │   │   │   └── dashboard/          # DashboardHome, TasksPage, UsersPage
 │   │   ├── store/
 │   │   │   ├── authStore.ts        # Zustand: user, accessToken, isAuthenticated
-│   │   │   └── uiStore.ts          # Zustand: sidebarOpen, activeModal
+│   │   │   └── uiStore.ts          # Zustand: theme, sidebarOpen, searchQuery
 │   │   ├── types/
 │   │   │   └── index.ts            # All shared TypeScript interfaces
 │   │   ├── constants/
@@ -292,13 +292,15 @@ npm run dev
 ```
 NODE_ENV=development
 PORT=4000
-MONGODB_URI=mongodb://localhost:27017/taskplatform
+MONGO_URI=mongodb://localhost:27017/taskplatform
 JWT_ACCESS_SECRET=your_256bit_random_access_secret
-JWT_ACCESS_EXPIRY=15m
+JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_SECRET=your_256bit_random_refresh_secret
-JWT_REFRESH_EXPIRY=7d
+JWT_REFRESH_EXPIRES_IN=7d
 FRONTEND_URL=http://localhost:5173
 BCRYPT_ROUNDS=10
+RATE_LIMIT_MAX=100
+RATE_LIMIT_WINDOW_MS=900000
 ```
 
 Generate secure secrets using:
@@ -341,7 +343,7 @@ Log in with each account to test role-specific views and access restrictions.
 
 ## API Documentation
 
-Interactive Swagger UI: `https://task-platform-production.up.railway.app/api/v1/docs`
+Interactive Swagger UI: https://task-platform-production.up.railway.app/api/v1/docs
 
 All responses follow a consistent envelope structure:
 
@@ -478,7 +480,7 @@ The frontend Nginx container serves the Vite production build. The custom `nginx
 
 - Connected to GitHub repository (`yashwaldia/task-platform`), auto-deploys on push to `master`
 - Deployment target: `backend/` directory using `backend/Dockerfile` (multi-stage Node.js build)
-- MongoDB provided as a managed Railway plugin — connection string auto-injected as `MONGODB_URI`
+- MongoDB provided as a managed Railway plugin — connection string injected as `MONGO_URI`
 - All environment variables configured via Railway dashboard (no secrets committed to repository)
 
 ### Frontend — Vercel
@@ -486,7 +488,7 @@ The frontend Nginx container serves the Vite production build. The custom `nginx
 - Connected to GitHub repository, auto-deploys on push to `master` (typical deploy time under 60 seconds)
 - Build command: `cd frontend && npm run build`
 - Output directory: `frontend/dist`
-- Environment variable `VITE_API_URL` set to Railway backend URL in Vercel dashboard
+- Environment variables `VITE_API_URL` and `VITE_SOCKET_URL` set to Railway backend URL in Vercel dashboard
 - SPA client-side routing handled via `frontend/vercel.json` rewrite rules
 
 ---
