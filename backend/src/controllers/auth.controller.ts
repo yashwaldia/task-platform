@@ -5,20 +5,22 @@ import { COOKIE_NAMES, TOKEN_EXPIRY_MS, HTTP_STATUS } from '../constants';
 import { IUser } from '../models/User.model';
 
 // ─── Cookie Configuration ─────────────────────────────────────────────────────
+// SameSite must be 'none' in production because frontend (vercel.app) and
+// backend (railway.app) are on different domains. SameSite=none requires
+// Secure=true. In development, 'lax' works fine on the same localhost origin.
 
 const refreshCookieOptions: CookieOptions = {
   httpOnly: true,
-  secure:   env.NODE_ENV === 'production',
-  // 'lax' in development allows cross-origin requests from Vite dev server
-  sameSite: env.NODE_ENV === 'production' ? 'strict' : 'lax',
-  maxAge:   TOKEN_EXPIRY_MS.REFRESH, // milliseconds
+  secure:   true,
+  sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge:   TOKEN_EXPIRY_MS.REFRESH,
   path:     '/',
 };
 
 const clearCookieOptions: CookieOptions = {
   httpOnly: true,
-  secure:   env.NODE_ENV === 'production',
-  sameSite: env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  secure:   true,
+  sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
   path:     '/',
 };
 
@@ -44,12 +46,7 @@ const formatUser = (user: IUser | { id: string; name: string; email: string; rol
 };
 
 // ─── Controllers ─────────────────────────────────────────────────────────────
-// Express 5: async errors automatically forwarded to errorHandler — no try/catch needed
 
-/**
- * POST /api/v1/auth/signup
- * Register a new user and return access token + set refresh cookie
- */
 export const signup = async (req: Request, res: Response): Promise<void> => {
   const { name, email, password, role } = req.body as {
     name: string;
@@ -60,7 +57,6 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
   const result = await authService.signup({ name, email, password, role });
 
-  // Refresh token → httpOnly cookie (never exposed to JavaScript)
   res.cookie(COOKIE_NAMES.REFRESH_TOKEN, result.refreshToken, refreshCookieOptions);
 
   res.status(HTTP_STATUS.CREATED).json({
@@ -73,10 +69,6 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
   });
 };
 
-/**
- * POST /api/v1/auth/login
- * Authenticate user and return access token + set refresh cookie
- */
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body as { email: string; password: string };
 
@@ -94,14 +86,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   });
 };
 
-/**
- * POST /api/v1/auth/refresh
- * Rotate refresh token: validate cookie → revoke old → issue new pair
- */
 export const refresh = async (req: Request, res: Response): Promise<void> => {
   const rawRefreshToken = req.cookies[COOKIE_NAMES.REFRESH_TOKEN] as string | undefined;
 
-  // Handle missing cookie before calling service (avoids unnecessary DB call)
   if (!rawRefreshToken) {
     res.status(HTTP_STATUS.UNAUTHORIZED).json({
       success:    false,
@@ -115,7 +102,6 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 
   const result = await authService.refresh(rawRefreshToken);
 
-  // Set the new rotated refresh token
   res.cookie(COOKIE_NAMES.REFRESH_TOKEN, result.refreshToken, refreshCookieOptions);
 
   res.status(HTTP_STATUS.OK).json({
@@ -127,15 +113,9 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
   });
 };
 
-/**
- * POST /api/v1/auth/logout
- * Revoke refresh token in DB and clear the cookie
- * Protected: requires valid access token (verifyToken middleware)
- */
 export const logout = async (req: Request, res: Response): Promise<void> => {
   const rawRefreshToken = req.cookies[COOKIE_NAMES.REFRESH_TOKEN] as string | undefined;
 
-  // Gracefully handle already-cleared cookie
   if (rawRefreshToken) {
     await authService.logout(rawRefreshToken);
   }
@@ -149,11 +129,6 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
   });
 };
 
-/**
- * POST /api/v1/auth/forgot-password
- * Generate password reset token. Always returns same response (prevents enumeration).
- * NOTE: Token returned in body for this assignment — in production, send via email.
- */
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body as { email: string };
 
@@ -163,21 +138,15 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     success: true,
     message:
       'If an account with that email exists, a password reset token has been generated.',
-    // For this assignment only — production: send via email, never expose here
     data: resetToken ? { resetToken } : null,
   });
 };
 
-/**
- * POST /api/v1/auth/reset-password
- * Validate token, set new password, revoke all sessions, clear cookie
- */
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   const { token, password } = req.body as { token: string; password: string };
 
   await authService.resetPassword(token, password);
 
-  // Force logout — user must re-authenticate with new password
   res.clearCookie(COOKIE_NAMES.REFRESH_TOKEN, clearCookieOptions);
 
   res.status(HTTP_STATUS.OK).json({
@@ -187,11 +156,6 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   });
 };
 
-/**
- * GET /api/v1/auth/me
- * Return current authenticated user's profile
- * Protected: verifyToken middleware sets req.user before this runs
- */
 export const getMe = async (req: Request, res: Response): Promise<void> => {
   const user = await authService.getMe(req.user!.userId);
 
