@@ -4,7 +4,7 @@ import LoginForm from '../../components/auth/LoginForm';
 
 // ── Mini Kanban preview — right-panel visual asset ─────────────────────────────
 const DashboardPreview = () => (
-  <div className="relative mt-8">
+  <div className="relative mt-6">
     <div className="absolute -inset-4 bg-indigo-500/10 rounded-3xl blur-2xl pointer-events-none" />
     <div className="relative bg-white/[0.07] border border-white/[0.12] rounded-2xl p-4 shadow-2xl">
 
@@ -208,23 +208,29 @@ const LoginPage = () => {
         <div className="relative z-10 max-w-md">
 
           {/* Brand mark */}
-          <div className="flex items-center gap-2.5 mb-8">
+          <div className="flex items-center gap-2.5 mb-6">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/15 border border-white/20">
               <CheckSquare className="h-6 w-6 text-white" />
             </div>
             <span className="text-2xl font-bold text-white tracking-tight">TaskFlow</span>
           </div>
 
-          <h2 className="text-3xl font-bold text-white mb-3 leading-tight">
+          {/* Heading */}
+          <h2 className="text-3xl font-bold text-white mb-2 leading-tight">
             Manage your team&apos;s tasks with confidence
           </h2>
-          <p className="text-white/60 text-sm mb-5 leading-relaxed">
+
+          {/* Description */}
+          <p className="text-white/60 text-sm leading-relaxed">
             A production-ready task management platform built with real-time
             WebSockets, role-based access, and a full Kanban board.
           </p>
 
-          {/* Feature pill tags */}
-          <div className="flex flex-wrap gap-2">
+          {/* ① Dashboard preview card — appears first */}
+          <DashboardPreview />
+
+          {/* ② Feature pill tags — appears below the card */}
+          <div className="flex flex-wrap gap-2 mt-5">
             {FEATURES.map((f) => (
               <span
                 key={f}
@@ -235,9 +241,6 @@ const LoginPage = () => {
               </span>
             ))}
           </div>
-
-          {/* Mini Kanban preview visual */}
-          <DashboardPreview />
 
         </div>
       </div>
