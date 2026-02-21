@@ -18,25 +18,201 @@
 
 ## Architecture
 
+### System Layers
+
+Three-tier architecture: React SPA on the client, Node.js/Express API on the server, MongoDB as the database. Browser communicates with the server over HTTPS (REST) and WSS (WebSocket) — never directly with the database.
+
 ```
-Browser (React 18 + Vite SPA — Vercel)
-         │
-         ├── HTTPS REST API ─────────────────────────────────────────┐
-         │                                                            ▼
-         └── WSS (Socket.io) ──────────────────────► Railway.app (Node.js + Express + TypeScript)
-                                                               │
-                                                         Mongoose ORM
-                                                               │
-                                                    MongoDB (Railway Plugin)
++------------------------------------------------------------------+
+|                    BROWSER  (Vercel CDN)                         |
+|                                                                  |
+|  +-----------------+  +----------------+  +------------------+  |
+|  | React 18 + Vite |  |  Zustand v4    |  | TanStack Query   |  |
+|  | TypeScript SPA  |  | +-----------+  |  | v5               |  |
+|  | React Router v6 |  | | authStore |  |  | +------------+   |  |
+|  | shadcn/ui +     |  | | uiStore   |  |  | | Server     |   |  |
+|  | Tailwind CSS    |  | +-----------+  |  | | State +    |   |  |
+|  +--------+--------+  +----------------+  | | Cache      |   |  |
+|           |                               | +------------+   |  |
+|           |                               +------------------+  |
+|  +--------+-------------------------------------------+        |
+|  | Axios  (REST + silent token-refresh interceptor)   |        |
+|  | socket.io-client  (WebSocket / WSS)                |        |
+|  +--------+-------------------------------+-----------+        |
++-----------|-------------------------------|---------------------+
+            |  HTTPS / REST                 |  WSS (WebSocket)
+            v                               v
++------------------------------------------------------------------+
+|             SERVER  (Railway.app  .  Node.js v20)                |
+|                                                                  |
+|  Express v5  +  Socket.io v4  +  TypeScript                     |
+|                                                                  |
+|  +---------+   +------------------+   +---------------------+   |
+|  | Routes  |-->| Middleware       |-->| Controllers         |   |
+|  |         |   |                  |   |                     |   |
+|  | /auth   |   | verifyToken(JWT) |   | auth.controller.ts  |   |
+|  | /tasks  |   | checkRole(RBAC)  |   | task.controller.ts  |   |
+|  | /users  |   | rateLimiter      |   | user.controller.ts  |   |
+|  +---------+   | errorHandler     |   +----------+----------+   |
+|                | notFound (404)   |              |              |
+|                +------------------+              v              |
+|                                      +---------------------+   |
+|  +---------------------------+       | Services            |   |
+|  | Socket.io v4 Gateway      |<------| auth.service.ts     |   |
+|  |                           | emits | task.service.ts     |   |
+|  | task:created              | on    | user.service.ts     |   |
+|  | task:updated              | mutate+----------+----------+   |
+|  | task:deleted              |                  |              |
+|  +---------------------------+            Mongoose v9          |
++------------------------------------------------+-----------------+
+                                                 |
+                                                 v
++------------------------------------------------------------------+
+|                    MongoDB Atlas  (Cloud)                        |
+|                                                                  |
+|  +--------------+  +------------------+  +------------------+   |
+|  |    users     |  |      tasks       |  |  refreshtokens   |   |
+|  | name, email  |  | title, status    |  | userId, token    |   |
+|  | role         |  | priority         |  | expiresAt        |   |
+|  | deletedAt    |  | assignedTo (ref) |  |                  |   |
+|  |              |  | deletedAt        |  |                  |   |
+|  +--------------+  +------------------+  +------------------+   |
++------------------------------------------------------------------+
 ```
 
-**Key architectural decisions:**
+---
 
-- Access token stored in Zustand JS memory only — never `localStorage` (XSS-safe)
-- Refresh token stored in `httpOnly` cookie — inaccessible to JavaScript
-- All task mutations emit Socket.io events → clients invalidate TanStack Query cache automatically
-- Soft delete applied transparently via Mongoose pre-hook middleware (no service layer filter needed)
-- RBAC enforced at three layers: DB query, API service, and frontend UI rendering
+### Authentication Flow
+
+JWT dual-token system. The access token lives only in Zustand JS memory (XSS-safe, never `localStorage`). The refresh token is stored in an `httpOnly` cookie — completely inaccessible to JavaScript.
+
+```
+  POST /auth/login
+       |
+       +--> bcrypt.compare(password, stored hash)
+       |
+       +--> Generate access token  [15 min TTL] --> stored in Zustand memory only
+       |
+       +--> Generate refresh token [7 day TTL]  --> stored in MongoDB
+       |                                         --> set as httpOnly cookie (JS-inaccessible)
+       |
+       +--> Response: { accessToken }  +  Set-Cookie: refreshToken (httpOnly, sameSite=strict)
+
+
+  Every protected API call:
+       |
+       +--> Axios attaches: Authorization: Bearer <accessToken>
+       |
+       +--> If server returns 401 (token expired):
+       |         |
+       |         +--> Axios response interceptor fires POST /auth/refresh
+       |         |    (cookie sent automatically by browser — no JS involvement)
+       |         |         |
+       |         |         +--> Server validates refresh token in MongoDB
+       |         |         +--> Issues new access token + new refresh token
+       |         |         +--> Old refresh token revoked  (rotation — prevents replay)
+       |         |
+       |         +--> Original request retried with new token  (user sees nothing)
+       |
+       +--> If refresh also fails --> authStore.logout() --> redirect to /login
+```
+
+---
+
+### Real-Time Event Flow
+
+Every task mutation emits a Socket.io event to all connected clients in the workspace. Clients receive the event and invalidate their TanStack Query cache — the Kanban board re-renders with fresh data without any page refresh.
+
+```
+  User A drags a task card to "Done"
+       |
+       v
+  PATCH /api/v1/tasks/:id/status   (via Axios)
+       |
+       +--> Task document updated in MongoDB
+       |
+       +--> task.service.ts calls Socket.io gateway
+       |         |
+       |         v
+       |    io.to('tasks-room').emit('task:updated', { task })
+       |         |
+       |         v
+       |    All connected clients receive the WebSocket event
+       |
+       v
+  User B's browser  (useSocket hook)
+       |
+       +--> socket.on('task:updated', handler)
+       |
+       +--> queryClient.invalidateQueries({ queryKey: ['tasks'] })
+       |
+       +--> TanStack Query refetches --> Kanban board re-renders automatically
+            (User B sees the card move to Done instantly — no refresh needed)
+
+
+  Optimistic UI  (User A's side):
+       +--> Local TanStack cache updated immediately on drag start
+       +--> If API call fails --> cache rolled back + toast error notification shown
+```
+
+---
+
+### RBAC — Three-Layer Enforcement
+
+RBAC is enforced at three independent layers. A request must pass all three. Bypassing one layer does not bypass the others — this is defense in depth.
+
+**Layer 1 — Mongoose Query (Database)**
+
+Scopes what data is even retrieved from MongoDB at the query level:
+
+| Role | Query Scope |
+|---|---|
+| Admin | All records — no filter applied |
+| Manager | All tasks visible (team-wide read access) |
+| User | Own records only — `{ assignedTo: userId }` injected into every query |
+
+**Layer 2 — Service Logic (Backend)**
+
+Enforces what operations are permitted, regardless of what was fetched:
+
+| Action | Admin | Manager | User |
+|---|---|---|---|
+| Create task (any assignee) | Yes | Yes | No — self only |
+| Edit full task | Yes | Yes | No |
+| Delete task | Any task | Own created tasks only | No |
+| Update task status | Yes | Yes | Own tasks only |
+| View all users | Yes | No | No |
+| Change user roles | Yes | No | No |
+| Soft-delete users | Yes | No | No |
+
+**Layer 3 — React UI (Frontend)**
+
+Role-gated components are not hidden with CSS — they are **not mounted in the DOM at all**:
+
+```
+ProtectedRoute   -- redirects unauthenticated users to /login
+RoleRoute        -- redirects insufficient-role users to /dashboard
+
+Sidebar          -- "Users" nav item only rendered for Admin
+TaskCard         -- Edit / Delete buttons only rendered for Admin or Manager
+UsersTable       -- Role edit + Delete icons only rendered for Admin
+TaskModal        -- Assignee dropdown options scoped by role in form logic
+```
+
+---
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|---|---|
+| Access token in Zustand memory | Never written to `localStorage` or DOM — immune to XSS token theft |
+| Refresh token in `httpOnly` cookie | JavaScript cannot read it; browser sends it automatically — no manual token management |
+| Refresh token rotation | Each `/auth/refresh` issues a new pair and revokes the old — single-use tokens prevent replay attacks |
+| Soft delete via Mongoose pre-hook | `deletedAt` timestamp set on document; pre-find hooks transparently exclude deleted records from all queries — zero service layer changes required |
+| Socket.io + TanStack Query invalidation | Real-time updates without polling — Socket event triggers cache invalidation, React re-renders automatically |
+| Optimistic UI on drag-and-drop | Status change applied instantly to local cache; rolled back with toast if the API call fails |
+| RBAC at three independent layers | Defense in depth — data leakage is impossible even if one layer has a bug or is bypassed |
+| Service layer separation | Controllers stay thin (parse → call service → respond); all business logic and RBAC scoping in services — independently testable |
 
 ---
 
