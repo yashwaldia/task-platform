@@ -22,16 +22,18 @@ export const useAuth = () => {
   const user            = useAuthStore((s) => s.user);
 
   // Silent re-auth on page refresh:
-  // accessToken is gone from memory after refresh.
   // Step 1: POST /auth/refresh (sends httpOnly cookie) -> get new accessToken
   // Step 2: GET  /auth/me with new token -> restore user
   const meQuery = useQuery({
     queryKey: ['me'],
     queryFn: async (): Promise<User> => {
-      let token = useAuthStore.getState().accessToken;
+      let token: string | null = useAuthStore.getState().accessToken;
       if (!token) {
         const { data: refreshData } = await api.post('/auth/refresh');
-        token = refreshData.data?.accessToken ?? refreshData.accessToken;
+        const newToken: string | undefined =
+          refreshData.data?.accessToken ?? refreshData.accessToken;
+        if (!newToken) throw new Error('No refresh token available');
+        token = newToken;
         useAuthStore.getState().setToken(token);
       }
       const { data } = await api.get('/auth/me');
