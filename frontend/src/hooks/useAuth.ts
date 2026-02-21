@@ -1,4 +1,4 @@
-// frontend/src/hooks/useAuth.ts — REPLACE ENTIRE FILE
+// frontend/src/hooks/useAuth.ts
 import { useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -18,20 +18,26 @@ export const useAuth = () => {
   const setAuthChecked  = useAuthStore((s) => s.setAuthChecked);
   const clearAuth       = useAuthStore((s) => s.logout);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const authChecked     = useAuthStore((s) => s.authChecked);   // ← key flag
+  const authChecked     = useAuthStore((s) => s.authChecked);
   const user            = useAuthStore((s) => s.user);
 
-  // ─── Silent re-auth ───────────────────────────────────────────────────────
-  // Runs ONCE on app start when not authenticated.
-  // authChecked flag ensures it NEVER runs again after the first attempt,
-  // regardless of how many components call useAuth() or remount.
+  // Silent re-auth on page refresh:
+  // accessToken is gone from memory after refresh.
+  // Step 1: POST /auth/refresh (sends httpOnly cookie) -> get new accessToken
+  // Step 2: GET  /auth/me with new token -> restore user
   const meQuery = useQuery({
     queryKey: ['me'],
     queryFn: async (): Promise<User> => {
+      let token = useAuthStore.getState().accessToken;
+      if (!token) {
+        const { data: refreshData } = await api.post('/auth/refresh');
+        token = refreshData.data?.accessToken ?? refreshData.accessToken;
+        useAuthStore.getState().setToken(token);
+      }
       const { data } = await api.get('/auth/me');
       return data.data;
     },
-    enabled:              !isAuthenticated && !authChecked,  // ← stops the loop
+    enabled:              !isAuthenticated && !authChecked,
     retry:                false,
     staleTime:            Infinity,
     gcTime:               Infinity,
@@ -41,7 +47,6 @@ export const useAuth = () => {
     throwOnError:         false,
   });
 
-  // On success — sync user into store
   useEffect(() => {
     if (meQuery.data && !isAuthenticated) {
       const token = useAuthStore.getState().accessToken;
@@ -49,21 +54,17 @@ export const useAuth = () => {
         setAuth(meQuery.data, token);
         connectSocket(token);
       } else {
-        // /auth/me succeeded but no token in memory — shouldn't happen
-        // but mark as checked to prevent looping
         setAuthChecked();
       }
     }
   }, [meQuery.data, isAuthenticated, setAuth, setAuthChecked]);
 
-  // On failure — mark as checked so query never fires again
   useEffect(() => {
     if (meQuery.isError) {
       setAuthChecked();
     }
   }, [meQuery.isError, setAuthChecked]);
 
-  // ─── Login ────────────────────────────────────────────────────────────────
   const login = useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
       const { data } = await api.post<{ success: boolean; data: AuthData }>(
@@ -79,7 +80,6 @@ export const useAuth = () => {
     },
   });
 
-  // ─── Signup ───────────────────────────────────────────────────────────────
   const signup = useMutation({
     mutationFn: async (credentials: SignupCredentials) => {
       const { data } = await api.post<{ success: boolean; data: AuthData }>(
@@ -95,7 +95,6 @@ export const useAuth = () => {
     },
   });
 
-  // ─── Logout ───────────────────────────────────────────────────────────────
   const logout = useMutation({
     mutationFn: async () => {
       await api.post('/auth/logout');
@@ -108,7 +107,6 @@ export const useAuth = () => {
     },
   });
 
-  // ─── Forgot Password ──────────────────────────────────────────────────────
   const forgotPassword = useMutation({
     mutationFn: async (email: string) => {
       const { data } = await api.post('/auth/forgot-password', { email });
@@ -119,7 +117,6 @@ export const useAuth = () => {
   return {
     user,
     isAuthenticated,
-    // isInitializing is true ONLY during the very first /auth/me check
     isInitializing: !authChecked && meQuery.isLoading,
     login,
     signup,
