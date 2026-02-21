@@ -1,0 +1,33 @@
+# Dependencies — reinstalled fresh inside Docker
+node_modules
+
+# Compiled output — rebuilt inside Docker from source
+dist
+
+# Environment — injected at runtime via docker-compose env_file or secrets
+.env
+.env.*
+!.env.example
+
+# Test artifacts — not needed in production image
+tests
+coverage
+*.test.ts
+*.spec.ts
+
+# Development tooling
+*.log
+npm-debug.log*
+.DS_Store
+
+# Git
+.git
+.gitignore
+
+# Editor
+.vscode
+.idea
+
+# Docker itself
+Dockerfile
+docker-compose*.yml

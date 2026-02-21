@@ -1,7 +1,8 @@
 .
 ├── backend
+│   ├── cookies.txt
 │   ├── Dockerfile
-│   ├── jest.config.ts
+│   ├── jest.config.js
 │   ├── package-lock.json
 │   ├── package.json
 │   ├── seed
@@ -23,6 +24,7 @@
 │   │   │   ├── errorHandler.ts
 │   │   │   ├── notFound.ts
 │   │   │   ├── rateLimiter.ts
+│   │   │   ├── validateRequest.ts
 │   │   │   └── verifyToken.ts
 │   │   ├── models
 │   │   │   ├── RefreshToken.model.ts
@@ -51,6 +53,7 @@
 │   │   ├── auth.test.ts
 │   │   └── tasks.test.ts
 │   └── tsconfig.json
+├── cookies.txt
 ├── docker-compose.yml
 ├── frontend
 │   ├── components.json
@@ -82,6 +85,8 @@
 │   │   │   │   ├── KanbanColumn.tsx
 │   │   │   │   ├── TaskCard.tsx
 │   │   │   │   └── TaskModal.tsx
+│   │   │   ├── layout
+│   │   │   │   └── DashboardLayout.tsx
 │   │   │   ├── shared
 │   │   │   │   ├── EmptyState.tsx
 │   │   │   │   ├── LoadingSkeleton.tsx
@@ -133,14 +138,16 @@
 │   │   │   └── uiStore.ts
 │   │   ├── types
 │   │   │   └── index.ts
-│   │   └── validations
-│   │       └── schemas.ts
+│   │   ├── validations
+│   │   │   └── schemas.ts
+│   │   └── vite-env.d.ts
 │   ├── tsconfig.app.json
 │   ├── tsconfig.json
 │   ├── tsconfig.node.json
 │   └── vite.config.ts
+├── package-lock.json
 ├── package.json
 ├── PROJECT_STRUCTURE.txt
 └── README.md
 
-37 directories, 107 files
+38 directories, 113 files

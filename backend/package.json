@@ -7,7 +7,7 @@
     "dev": "ts-node-dev --respawn --transpile-only server.ts",
     "start": "node dist/server.js",
     "build": "tsc",
-    "test": "jest --forceExit",
+    "test": "NODE_ENV=test jest --forceExit --runInBand",
     "seed": "ts-node seed/seed.ts",
     "lint": "tsc --noEmit"
   },
@@ -27,7 +27,9 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.1",
     "morgan": "^1.10.1",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -39,6 +41,8 @@
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.3.0",
     "@types/supertest": "^6.0.3",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
     "jest": "^30.2.0",
     "nodemon": "^3.1.13",
     "supertest": "^7.2.2",

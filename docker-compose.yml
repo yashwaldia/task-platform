@@ -1,43 +1,69 @@
-version: '3.8'
+# version: '3.9'
 
 services:
+
+  # ── MongoDB ──────────────────────────────────────────────────────────────────
   mongodb:
     image: mongo:7
     container_name: task_mongodb
+    restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: secret123
-      MONGO_INITDB_DATABASE: taskplatform
+      MONGO_INITDB_DATABASE:      taskplatform
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout:  5s
+      retries:  5
+      start_period: 20s         # gives mongo time to initialise before first ping
 
+
+  # ── Backend ───────────────────────────────────────────────────────────────────
   backend:
     build:
-      context: ./backend
+      context:    ./backend
       dockerfile: Dockerfile
+      target:     production    # uses multi-stage production target
     container_name: task_backend
-    ports:
-      - "5000:5000"
-    env_file:
-      - ./backend/.env
-    environment:
-      MONGODB_URI: mongodb://root:secret123@mongodb:27017/taskplatform?authSource=admin
-    depends_on:
-      - mongodb
     restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy  # ← waits for mongosh ping, not just container start
+    env_file:
+      - ./backend/.env              # loads ACCESS_TOKEN_SECRET, JWT_* etc from .env
+    environment:
+      NODE_ENV:    production
+      PORT:        4000
+      MONGODB_URI: mongodb://root:secret123@mongodb:27017/taskplatform?authSource=admin
+    ports:
+      - "4000:4000"               # ← FIXED: was 5000:5000
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 30s
+      timeout:  5s
+      retries:  3
+      start_period: 15s
 
+
+  # ── Frontend ──────────────────────────────────────────────────────────────────
   frontend:
     build:
-      context: ./frontend
+      context:    ./frontend
       dockerfile: Dockerfile
     container_name: task_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy  # ← waits for backend /health to pass first
     ports:
       - "5173:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
+
 
 volumes:
   mongo_data:
+    driver: local
