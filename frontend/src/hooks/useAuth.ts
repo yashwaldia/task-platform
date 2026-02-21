@@ -27,6 +27,7 @@ export const useAuth = () => {
   const meQuery = useQuery({
     queryKey: ['me'],
     queryFn: async (): Promise<User> => {
+      // Restore token from httpOnly refresh cookie first
       let token: string | null = useAuthStore.getState().accessToken;
       if (!token) {
         const { data: refreshData } = await api.post('/auth/refresh');
@@ -36,8 +37,10 @@ export const useAuth = () => {
         token = newToken;
         useAuthStore.getState().setToken(token);
       }
+      // /auth/me response shape: { success, data: { user: {...} } }
+      // We must return data.data.user (the User), not data.data (the wrapper)
       const { data } = await api.get('/auth/me');
-      return data.data;
+      return data.data.user;
     },
     enabled:              !isAuthenticated && !authChecked,
     retry:                false,
