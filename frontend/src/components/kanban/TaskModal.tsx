@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -29,6 +30,8 @@ import { taskSchema } from '../../validations/schemas';
 import { QUERY_KEYS } from '../../constants';
 import { cn } from '../../lib/utils';
 import type { Task, TaskStatus, TaskPriority } from '../../types';
+
+const UNASSIGNED = 'unassigned';
 
 type TaskFormValues = z.infer<typeof taskSchema>;
 
@@ -57,7 +60,6 @@ const TaskModal = ({ open, onClose, task, defaultStatus = 'todo' }: TaskModalPro
 
   const { users } = useUsers();
 
-  // Direct mutations — no redundant GET /tasks query
   const createTask = useMutation({
     mutationFn: async (payload: TaskPayload): Promise<Task> => {
       const { data } = await api.post('/tasks', payload);
@@ -96,19 +98,19 @@ const TaskModal = ({ open, onClose, task, defaultStatus = 'todo' }: TaskModalPro
     formState: { errors },
   } = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema) });
 
-  // Sync form state when modal opens
   useEffect(() => {
     if (!open) return;
     if (task) {
+      const assignedId =
+        task.assignedTo && typeof task.assignedTo === 'object'
+          ? task.assignedTo._id
+          : (task.assignedTo as string | undefined) ?? '';
       reset({
         title:       task.title,
         description: task.description ?? '',
         status:      task.status,
         priority:    task.priority,
-        assignedTo:
-          task.assignedTo && typeof task.assignedTo === 'object'
-            ? task.assignedTo._id
-            : (task.assignedTo as string | undefined) ?? '',
+        assignedTo:  assignedId || UNASSIGNED,
         dueDate: task.dueDate
           ? new Date(task.dueDate).toISOString().split('T')[0]
           : '',
@@ -119,7 +121,7 @@ const TaskModal = ({ open, onClose, task, defaultStatus = 'todo' }: TaskModalPro
         description: '',
         status:      defaultStatus,
         priority:    'medium',
-        assignedTo:  '',
+        assignedTo:  UNASSIGNED,
         dueDate:     '',
       });
     }
@@ -131,7 +133,8 @@ const TaskModal = ({ open, onClose, task, defaultStatus = 'todo' }: TaskModalPro
       description: values.description || undefined,
       status:      values.status as TaskStatus,
       priority:    values.priority as TaskPriority,
-      assignedTo:  values.assignedTo || undefined,
+      // treat sentinel 'unassigned' as no assignment
+      assignedTo:  values.assignedTo === UNASSIGNED ? undefined : values.assignedTo || undefined,
       dueDate:     values.dueDate || undefined,
     };
 
@@ -162,6 +165,11 @@ const TaskModal = ({ open, onClose, task, defaultStatus = 'todo' }: TaskModalPro
           <DialogTitle>
             {isEditMode ? 'Edit Task' : 'Create New Task'}
           </DialogTitle>
+          <DialogDescription>
+            {isEditMode
+              ? 'Update the task details below.'
+              : 'Fill in the details to create a new task.'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-1" noValidate>
@@ -245,12 +253,12 @@ const TaskModal = ({ open, onClose, task, defaultStatus = 'todo' }: TaskModalPro
             </div>
           </div>
 
-          {/* Assign To — admin only (only admin can GET /users) */}
+          {/* Assign To — admin only */}
           {canAssign && (
             <div className="space-y-1.5">
               <Label>Assign To</Label>
               <Select
-                value={watch('assignedTo') ?? ''}
+                value={watch('assignedTo') ?? UNASSIGNED}
                 onValueChange={(v) =>
                   setValue('assignedTo', v, { shouldValidate: true })
                 }
@@ -259,7 +267,8 @@ const TaskModal = ({ open, onClose, task, defaultStatus = 'todo' }: TaskModalPro
                   <SelectValue placeholder="Select user (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  {/* 'unassigned' sentinel — never an empty string */}
+                  <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
                   {users.map((u) => (
                     <SelectItem key={u._id} value={u._id}>
                       {u.name}{' '}
@@ -285,7 +294,6 @@ const TaskModal = ({ open, onClose, task, defaultStatus = 'todo' }: TaskModalPro
           </div>
 
           <DialogFooter className="gap-2 pt-2 flex-wrap">
-            {/* Delete — edit mode + admin/manager only */}
             {isEditMode && canDelete && (
               <Button
                 type="button"
